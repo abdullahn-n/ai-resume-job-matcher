@@ -7,14 +7,13 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database import async_session
 from app.models import Analysis
-from app.analysis.pdf_parser import extract_text_from_pdf
 from app.analysis.ai_engine import analyze_resume
 
 logger = logging.getLogger(__name__)
 
 
 async def run_analysis(analysis_id: str) -> None:
-    """Background task: parse PDF text, call Ollama, save results."""
+    """Background task: call Ollama AI, save results."""
     async with async_session() as db:
         result = await db.execute(
             select(Analysis).where(Analysis.id == analysis_id)
@@ -27,6 +26,7 @@ async def run_analysis(analysis_id: str) -> None:
         # Mark as processing
         analysis.status = "processing"
         await db.commit()
+        logger.info("Analysis %s: processing started", analysis_id)
 
         try:
             # Call Ollama AI
@@ -41,6 +41,7 @@ async def run_analysis(analysis_id: str) -> None:
             analysis.suggestions = json.dumps(ai_result.suggestions)
             analysis.status = "completed"
             analysis.completed_at = datetime.now(timezone.utc)
+            logger.info("Analysis %s: completed (score=%.1f)", analysis_id, ai_result.match_score)
 
         except Exception as exc:
             logger.exception("Analysis %s failed: %s", analysis_id, exc)

@@ -1,3 +1,5 @@
+import logging
+
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -10,6 +12,7 @@ from app.auth.utils import create_access_token, hash_password, verify_password
 from app.auth.dependencies import get_current_user
 
 router = APIRouter()
+logger = logging.getLogger(__name__)
 
 
 @router.post("/signup", response_model=TokenResponse, status_code=status.HTTP_201_CREATED)
@@ -27,17 +30,12 @@ async def signup(
             detail="Email already registered",
         )
 
-    if len(body.password) < 6:
-        raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail="Password must be at least 6 characters",
-        )
-
     user = User(email=body.email, hashed_password=hash_password(body.password))
     db.add(user)
     await db.commit()
     await db.refresh(user)
 
+    logger.info("New user signed up: %s", body.email)
     token = create_access_token(user.id)
     return TokenResponse(access_token=token)
 
@@ -53,11 +51,13 @@ async def login(
     user = result.scalar_one_or_none()
 
     if not user or not verify_password(body.password, user.hashed_password):
+        logger.warning("Failed login attempt for: %s", body.email)
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid email or password",
         )
 
+    logger.info("User logged in: %s", body.email)
     token = create_access_token(user.id)
     return TokenResponse(access_token=token)
 

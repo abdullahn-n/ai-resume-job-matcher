@@ -1,18 +1,18 @@
 from datetime import datetime
 
-from pydantic import BaseModel, EmailStr
+from pydantic import BaseModel, EmailStr, Field
 
 
 # ── Auth ──────────────────────────────────────────────────────────────────────
 
 class SignupRequest(BaseModel):
     email: EmailStr
-    password: str
+    password: str = Field(..., min_length=6, max_length=128)
 
 
 class LoginRequest(BaseModel):
     email: EmailStr
-    password: str
+    password: str = Field(..., max_length=128)
 
 
 class TokenResponse(BaseModel):
@@ -54,6 +54,12 @@ class AnalysisListItem(BaseModel):
     match_score: float | None = None
     job_description_preview: str
     created_at: datetime
+
+
+class PaginatedAnalyses(BaseModel):
+    items: list[AnalysisListItem]
+    total: int
+    has_more: bool
 
 
 # ── AI Result (internal, used to validate Ollama response) ────────────────────

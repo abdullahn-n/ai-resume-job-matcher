@@ -1,9 +1,11 @@
 import { useState, useCallback, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import client from "../api/client";
+import { useToast } from "../context/ToastContext";
 
 export default function AnalyzePage() {
   const navigate = useNavigate();
+  const toast = useToast();
   const fileInputRef = useRef(null);
   const [file, setFile] = useState(null);
   const [dragActive, setDragActive] = useState(false);
@@ -46,24 +48,26 @@ export default function AnalyzePage() {
   };
 
   const pollForResult = async (analysisId) => {
-    const maxAttempts = 60; // 2 minutes max
+    const maxAttempts = 60;
     for (let i = 0; i < maxAttempts; i++) {
       await new Promise((r) => setTimeout(r, 2000));
       try {
         const res = await client.get(`/analysis/${analysisId}`);
         const { status: s } = res.data;
         if (s === "completed") {
+          toast.success("Analysis complete!");
           navigate(`/result/${analysisId}`);
           return;
         }
         if (s === "failed") {
           setError(res.data.error_message || "Analysis failed. Please try again.");
+          toast.error("Analysis failed");
           setSubmitting(false);
           return;
         }
         setStatus(s === "processing" ? "AI is analyzing your resume..." : "Queued...");
       } catch {
-        // Ignore poll errors, keep trying
+        // Ignore poll errors
       }
     }
     setError("Analysis timed out. Please try again.");
@@ -98,7 +102,9 @@ export default function AnalyzePage() {
       setStatus("Processing...");
       pollForResult(res.data.id);
     } catch (err) {
-      setError(err.response?.data?.detail || "Failed to submit. Please try again.");
+      const msg = err.response?.data?.detail || "Failed to submit. Please try again.";
+      setError(msg);
+      toast.error(msg);
       setSubmitting(false);
     }
   };
@@ -106,10 +112,10 @@ export default function AnalyzePage() {
   return (
     <div className="max-w-4xl mx-auto px-4 py-10">
       <div className="text-center mb-10">
-        <h1 className="text-3xl font-bold text-gray-900">
+        <h1 className="text-3xl font-bold text-gray-900 dark:text-white">
           Analyze Your Resume
         </h1>
-        <p className="text-gray-500 mt-2">
+        <p className="text-gray-500 dark:text-gray-400 mt-2">
           Upload your resume and paste the job description to get an AI-powered
           skill match analysis
         </p>
@@ -117,14 +123,14 @@ export default function AnalyzePage() {
 
       <form onSubmit={handleSubmit} className="space-y-8">
         {error && (
-          <div className="bg-red-50 text-red-700 px-4 py-3 rounded-lg text-sm">
+          <div className="bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-400 px-4 py-3 rounded-lg text-sm animate-fade-in">
             {error}
           </div>
         )}
 
         {/* PDF Upload Zone */}
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">
+          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
             Resume (PDF)
           </label>
           <div
@@ -135,35 +141,35 @@ export default function AnalyzePage() {
             onClick={() => fileInputRef.current?.click()}
             className={`border-2 border-dashed rounded-xl p-10 text-center cursor-pointer transition-all ${
               dragActive
-                ? "border-indigo-500 bg-indigo-50"
+                ? "border-indigo-500 bg-indigo-50 dark:bg-indigo-900/20"
                 : file
-                ? "border-green-400 bg-green-50"
-                : "border-gray-300 hover:border-indigo-400 hover:bg-gray-50"
+                ? "border-green-400 bg-green-50 dark:bg-green-900/20 dark:border-green-600"
+                : "border-gray-300 dark:border-gray-600 hover:border-indigo-400 hover:bg-gray-50 dark:hover:bg-gray-800"
             }`}
           >
             {file ? (
               <div>
-                <div className="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-3">
-                  <svg className="w-6 h-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <div className="w-12 h-12 bg-green-100 dark:bg-green-900/40 rounded-full flex items-center justify-center mx-auto mb-3">
+                  <svg className="w-6 h-6 text-green-600 dark:text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                   </svg>
                 </div>
-                <p className="font-medium text-green-700">{file.name}</p>
-                <p className="text-sm text-green-600 mt-1">
+                <p className="font-medium text-green-700 dark:text-green-300">{file.name}</p>
+                <p className="text-sm text-green-600 dark:text-green-400 mt-1">
                   {(file.size / 1024).toFixed(1)} KB - Click or drop to replace
                 </p>
               </div>
             ) : (
               <div>
-                <div className="w-12 h-12 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-3">
+                <div className="w-12 h-12 bg-gray-100 dark:bg-gray-700 rounded-full flex items-center justify-center mx-auto mb-3">
                   <svg className="w-6 h-6 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
                   </svg>
                 </div>
-                <p className="font-medium text-gray-700">
+                <p className="font-medium text-gray-700 dark:text-gray-300">
                   Drag & drop your resume PDF here
                 </p>
-                <p className="text-sm text-gray-500 mt-1">
+                <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
                   or click to browse files
                 </p>
               </div>
@@ -180,14 +186,14 @@ export default function AnalyzePage() {
 
         {/* Job Description */}
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">
+          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
             Job Description
           </label>
           <textarea
             value={jobDescription}
             onChange={(e) => setJobDescription(e.target.value)}
             rows={10}
-            className="w-full px-4 py-3 rounded-xl border border-gray-300 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition-all resize-y"
+            className="w-full px-4 py-3 rounded-xl border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition-all resize-y"
             placeholder="Paste the full job description here..."
           />
         </div>
